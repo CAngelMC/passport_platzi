@@ -12,39 +12,30 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 
-// Basic Strategy
+//  Basic strategy
 require("./utils/auth/strategies/basic");
 
-// Agregamos las variables de timpo en segundos
-// const THIRTY_DAYS_IN_SEC = 2592000000;
-// const TWO_HOURS_IN_SEC = 7200000;
+// OAuth strategy
+require("./utils/auth/strategies/oauth");
 
-app.post("/auth/sign-in", async function (req, res, next) {
-  // Obtenemos el atributo rememberMe desde el cuerpo del request
-  // const { rememberMe } = req.body;
-
-  passport.authenticate("basic", function (error, data) {
+app.post("/auth/sign-in", async function(req, res, next) {
+  passport.authenticate("basic", function(error, data) {
     try {
       if (error || !data) {
         next(boom.unauthorized());
       }
 
-      req.login(data, { session: false }, async function (error) {
+      req.login(data, { session: false }, async function(error) {
         if (error) {
           next(error);
         }
+
         const { token, ...user } = data;
 
-        // Si el atributo rememberMe es verdadero la expiración será en 30 dias
-        // de lo contrario la expiración será en 2 horas
-        if (!config.dev) {
-          res.cookie("token", token, {
-            httpOnly: true,
-            secure: true,
-          });
-        } else {
-          res.cookie("token", token, { withCredentials: true });
-        }
+        res.cookie("token", token, {
+          httpOnly: !config.dev,
+          secure: !config.dev
+        });
 
         res.status(200).json(user);
       });
@@ -54,14 +45,14 @@ app.post("/auth/sign-in", async function (req, res, next) {
   })(req, res, next);
 });
 
-app.post("/auth/sign-up", async function (req, res, next) {
+app.post("/auth/sign-up", async function(req, res, next) {
   const { body: user } = req;
 
   try {
     await axios({
       url: `${config.apiUrl}/api/auth/sign-up`,
       method: "post",
-      data: user,
+      data: user
     });
 
     res.status(201).json({ message: "user created" });
@@ -70,9 +61,9 @@ app.post("/auth/sign-up", async function (req, res, next) {
   }
 });
 
-app.get("/movies", async function (req, res, next) {});
+app.get("/movies", async function(req, res, next) {});
 
-app.post("/user-movies", async function (req, res, next) {
+app.post("/user-movies", async function(req, res, next) {
   try {
     const { body: userMovie } = req;
     const { token } = req.cookies;
@@ -81,8 +72,7 @@ app.post("/user-movies", async function (req, res, next) {
       url: `${config.apiUrl}/api/user-movies`,
       headers: { Authorization: `Bearer ${token}` },
       method: "post",
-      data: userMovie,
-      withCredentials: true,
+      data: userMovie
     });
 
     if (status !== 201) {
@@ -95,7 +85,7 @@ app.post("/user-movies", async function (req, res, next) {
   }
 });
 
-app.delete("/user-movies/:userMovieId", async function (req, res, next) {
+app.delete("/user-movies/:userMovieId", async function(req, res, next) {
   try {
     const { userMovieId } = req.params;
     const { token } = req.cookies;
@@ -103,7 +93,7 @@ app.delete("/user-movies/:userMovieId", async function (req, res, next) {
     const { data, status } = await axios({
       url: `${config.apiUrl}/api/user-movies/${userMovieId}`,
       headers: { Authorization: `Bearer ${token}` },
-      method: "delete",
+      method: "delete"
     });
 
     if (status !== 200) {
@@ -116,6 +106,32 @@ app.delete("/user-movies/:userMovieId", async function (req, res, next) {
   }
 });
 
-app.listen(config.port, function () {
+app.get(
+  "/auth/google-oauth",
+  passport.authenticate("google-oauth", {
+    scope: ["email", "profile", "openid"]
+  })
+);
+
+app.get(
+  "/auth/google-oauth/callback",
+  passport.authenticate("google-oauth", { session: false }),
+  function(req, res, next) {
+    if (!req.user) {
+      next(boom.unauthorized());
+    }
+
+    const { token, ...user } = req.user;
+
+    res.cookie("token", token, {
+      httpOnly: !config.dev,
+      secure: !config.dev
+    });
+
+    res.status(200).json(user);
+  }
+);
+
+app.listen(config.port, function() {
   console.log(`Listening http://localhost:${config.port}`);
 });
