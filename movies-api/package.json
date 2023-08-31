@@ -24,7 +24,7 @@
     "express-slash": "^2.0.1",
     "helmet": "^4.1.1",
     "jsonwebtoken": "^8.5.1",
-    "mongodb": "^3.6.2",
+    "mongodb": "^3.6.10",
     "morgan": "^1.10.0",
     "passport": "^0.4.1",
     "passport-http": "^0.3.0",
